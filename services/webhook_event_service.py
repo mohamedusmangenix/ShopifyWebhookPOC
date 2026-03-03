@@ -22,7 +22,7 @@ class WebhookEventService:
     @staticmethod
     async def get_event_list(db: AsyncIOMotorDatabase):
         try:
-            cursor = db["webhook_events"].find().sort("received_at", -1)
+            cursor = db["webhook_events"].find()
             events = await cursor.to_list(length=None)
             for event in events:
                 event["_id"] = str(event["_id"])
