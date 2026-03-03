@@ -4,9 +4,12 @@ import base64
 import json
 import logging
 import os
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from fastapi import FastAPI, Header, HTTPException, Request
+from motor.motor_asyncio import AsyncIOMotorClient
 
 load_dotenv()
 
@@ -16,9 +19,21 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Shopify Webhook POC")
-
 SHOPIFY_WEBHOOK_SECRET = os.getenv("SHOPIFY_WEBHOOK_SECRET", "")
+MONGODB_URI = os.getenv("MONGODB_URI", "")
+MONGODB_DB_NAME = os.getenv("MONGODB_DB_NAME", "shopify_webhooks")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    app.state.mongo = AsyncIOMotorClient(MONGODB_URI)
+    logger.info("MongoDB client connected")
+    yield
+    app.state.mongo.close()
+    logger.info("MongoDB client closed")
+
+
+app = FastAPI(title="Shopify Webhook POC", lifespan=lifespan)
 
 
 def verify_shopify_webhook(body: bytes, hmac_header: str) -> bool:
@@ -49,7 +64,16 @@ async def shopify_webhook(
     payload = json.loads(body)
 
     logger.info("Received webhook | topic=%s | shop=%s", x_shopify_topic, x_shopify_shop_domain)
-    logger.info("Payload: %s", json.dumps(payload, indent=2))
+
+    # Save to MongoDB
+    db = request.app.state.mongo[MONGODB_DB_NAME]
+    result = await db["webhook_events"].insert_one({
+        "topic": x_shopify_topic,
+        "shop": x_shopify_shop_domain,
+        "received_at": datetime.now(timezone.utc),
+        "payload": payload,
+    })
+    logger.info("Saved to MongoDB | _id=%s | topic=%s", result.inserted_id, x_shopify_topic)
 
     # Route to topic-specific handlers
     if x_shopify_topic == "orders/create":
