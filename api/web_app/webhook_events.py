@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, Response
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from config.db_config import get_db
@@ -14,7 +14,12 @@ async def receive_notification(request: Request, db: AsyncIOMotorDatabase = Depe
         payload = await request.json()
         topic = payload.get("topic", "generic")
         shop_domain = payload.get("shop_domain", "unknown")
-
+        id=payload.get("id",None)
+        
+        resStatus,DataResult=await WebhookEventService.get_event_by_webId(event_id=id, db=db)
+        if resStatus:
+            return Response(status_code=200)
+        
         status, result = await WebhookEventService.save_event(
             topic=topic,
             shop_domain=shop_domain,
@@ -22,25 +27,12 @@ async def receive_notification(request: Request, db: AsyncIOMotorDatabase = Depe
             db=db,
         )
         if not status:
-            return ResponseModel(
-                data=None,
-                status="Failed",
-                is_success=False,
-                message=result
-            )
-        return ResponseModel(
-            data=result,
-            status="Success",
-            is_success=True,
-            message="Notification saved successfully"
-        )
+            return Response(status_code=200)
+        
+        return Response(status_code=200)
     except Exception as e:
-        return ResponseModel(
-            data=None,
-            status="Error",
-            is_success=False,
-            message=str(e)
-        )
+        print(e)
+        return Response(status_code=200)    
 
 
 @webhook_events_router.get("/getEventList", response_model=ResponseModel)

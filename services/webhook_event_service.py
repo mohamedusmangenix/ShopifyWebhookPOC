@@ -43,3 +43,15 @@ class WebhookEventService:
             return True, event
         except Exception as e:
             return False, str(e)
+        
+    @staticmethod
+    async def get_event_by_webId(event_id: int, db: AsyncIOMotorDatabase):
+        try:
+            from bson import ObjectId
+            event = await db["webhook_events"].find_one({"payload.id": event_id})
+            if not event:
+                return False, "Webhook event not found"
+            event["_id"] = str(event["_id"])
+            return True, event
+        except Exception as e:
+            return False, str(e)
