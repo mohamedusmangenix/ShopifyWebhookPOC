@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from motor.motor_asyncio import AsyncIOMotorDatabase
-
+from models.webhook_event_model import WebhookEvent
 
 class WebhookEventService:
 
