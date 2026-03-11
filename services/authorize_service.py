@@ -37,10 +37,11 @@ class AuthorizeService:
                 "expires_in": current_time.timestamp() + expires_in
             }
 
-            # Save token in DB
-            await db["tokens"].delete_many({})
-            await db["tokens"].insert_one(token_data)
+            save_status, save_message = await AuthorizeService.save_token(db, access_token, expires_in)
 
+            if not save_status:
+                return False, f"Failed to save token: {save_message}", None
+         
             return True, "Token generated successfully", token_data
 
         except httpx.RequestError as e:
